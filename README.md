@@ -16,6 +16,7 @@ A local medical imaging pipeline for liver CT segmentation using NIfTI preproces
 - Naive HU-threshold baseline segmentation
 - Automatic 2D bounding boxes from baseline or mask
 - MedSAM Lite integration scaffold with safe missing-checkpoint handling
+- Current-slice evaluation table and CSV metrics export
 - Clean modular architecture
 
 ## Phase 2: CT windowing
@@ -42,13 +43,19 @@ Phase 4B keeps MedSAM Lite optional. The app now reports whether local MedSAM/SA
 
 Real MedSAM Lite inference requires local dependencies, a local checkpoint configured in `config.yaml` and a supported local loader. No weights are included, no automatic download is performed and no Dice result is reported unless a real prediction exists.
 
+## Phase 5: evaluation and metrics export
+
+Phase 5 adds an educational evaluation layer for the current slice. Available metrics include Dice, IoU, mask area, ground-truth area, bbox coverage and CSV export to `outputs/metrics/`.
+
+The HU baseline can be compared with the uploaded ground-truth mask. MedSAM Lite metrics are optional and are only reported if a real MedSAM prediction exists in the current session.
+
 ## Roadmap
 
 - Phase 2: Hounsfield windowing and CT preprocessing
 - Phase 3: baseline segmentation and automatic bounding boxes
 - Phase 4A: MedSAM Lite integration scaffold
 - Phase 4B: MedSAM Lite zero-shot inference with local weights
-- Phase 5: benchmark and evaluation
+- Phase 5: evaluation and metrics export
 - Phase 6: DICOM ingestion
 - Phase 7: CLI
 - Phase 8: premium documentation and screenshots

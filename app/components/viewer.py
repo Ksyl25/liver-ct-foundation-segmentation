@@ -15,6 +15,11 @@ from src.evaluation.mask_stats import (
     find_slices_with_nonzero_mask,
 )
 from src.evaluation.dice import dice_score
+from src.evaluation.metrics import (
+    compute_bbox_coverage,
+    compute_slice_metrics,
+    export_metrics_to_csv,
+)
 from src.models.baseline import segment_liver_hu_threshold_slice
 from src.models.medsam_lite import (
     MedSAMLiteUnavailableError,
@@ -37,6 +42,7 @@ from src.visualization.overlay import (
 RAW_DISPLAY_MODE = "Raw CT slice"
 LIVER_WINDOW_DISPLAY_MODE = "Liver windowed CT slice"
 SLICE_STATE_KEY = "axial_slice_index"
+MEDSAM_PREDICTION_STATE_KEY = "medsam_prediction_current_slice"
 BBOX_SOURCE_GT = "Ground-truth mask bbox (debug only)"
 BBOX_SOURCE_BASELINE = "HU baseline bbox"
 
@@ -164,6 +170,7 @@ def _render_baseline_and_bbox(
 
 
 def _render_medsam_lite_section(
+    slice_index: int,
     image_slice: np.ndarray,
     display_slice: np.ndarray,
     baseline_bbox: tuple[int, int, int, int] | None,
@@ -285,6 +292,142 @@ def _render_medsam_lite_section(
                     clamp=True,
                 )
 
+            st.session_state[MEDSAM_PREDICTION_STATE_KEY] = {
+                "slice_index": slice_index,
+                "slice_shape": tuple(image_slice.shape),
+                "prediction": prediction_mask,
+                "bbox": selected_bbox,
+                "bbox_source": medsam_bbox_source,
+                "inference_time": inference_time_seconds,
+            }
+
+
+def _metric_row(
+    method: str,
+    slice_index: int,
+    target: str,
+    metrics: dict,
+    bbox: tuple[int, int, int, int] | None,
+    bbox_source: str | None,
+    bbox_coverage: float | None,
+    inference_time: float | None = None,
+    notes: str = "",
+) -> dict:
+    return {
+        "case_id": "unknown",
+        "slice_index": slice_index,
+        "method": method,
+        "target": target,
+        "dice": metrics.get("dice"),
+        "iou": metrics.get("iou"),
+        "mask_area": metrics.get("mask_area"),
+        "gt_area": metrics.get("gt_area"),
+        "bbox": bbox,
+        "bbox_source": bbox_source,
+        "bbox_coverage": bbox_coverage,
+        "inference_time": inference_time,
+        "status": metrics.get("status", "available"),
+        "notes": notes,
+    }
+
+
+def _render_evaluation_section(
+    slice_index: int,
+    mask_display: np.ndarray | None,
+    baseline_mask: np.ndarray,
+    baseline_bbox: tuple[int, int, int, int] | None,
+    gt_bbox: tuple[int, int, int, int] | None,
+) -> None:
+    with st.expander("Evaluation", expanded=True):
+        st.warning(
+            "Metrics are computed for educational evaluation only and are not "
+            "clinically validated."
+        )
+        if mask_display is None:
+            st.info("Upload a ground-truth mask to compute baseline vs GT metrics.")
+            return
+
+        rows = []
+        gt_metrics = compute_slice_metrics(mask_display, mask_display, label=1)
+        rows.append(
+            _metric_row(
+                method="Ground-truth self-check",
+                slice_index=slice_index,
+                target="current_slice",
+                metrics=gt_metrics,
+                bbox=gt_bbox,
+                bbox_source=BBOX_SOURCE_GT,
+                bbox_coverage=compute_bbox_coverage(mask_display, gt_bbox),
+                notes="Ground truth compared with itself.",
+            )
+        )
+
+        baseline_metrics = compute_slice_metrics(baseline_mask, mask_display, label=1)
+        rows.append(
+            _metric_row(
+                method="HU baseline",
+                slice_index=slice_index,
+                target="current_slice",
+                metrics=baseline_metrics,
+                bbox=baseline_bbox,
+                bbox_source=BBOX_SOURCE_BASELINE,
+                bbox_coverage=compute_bbox_coverage(mask_display, baseline_bbox),
+                notes="Naive HU-threshold baseline, not clinical segmentation.",
+            )
+        )
+
+        medsam_state = st.session_state.get(MEDSAM_PREDICTION_STATE_KEY)
+        if (
+            medsam_state
+            and medsam_state.get("slice_index") == slice_index
+            and tuple(medsam_state.get("slice_shape", ())) == tuple(mask_display.shape)
+            and medsam_state.get("prediction") is not None
+        ):
+            medsam_prediction = medsam_state["prediction"]
+            medsam_metrics = compute_slice_metrics(
+                medsam_prediction,
+                mask_display,
+                label=1,
+            )
+            rows.append(
+                _metric_row(
+                    method="MedSAM Lite",
+                    slice_index=slice_index,
+                    target="current_slice",
+                    metrics=medsam_metrics,
+                    bbox=medsam_state.get("bbox"),
+                    bbox_source=medsam_state.get("bbox_source"),
+                    bbox_coverage=compute_bbox_coverage(
+                        mask_display,
+                        medsam_state.get("bbox"),
+                    ),
+                    inference_time=medsam_state.get("inference_time"),
+                    notes="Real MedSAM Lite prediction available for this session.",
+                )
+            )
+        else:
+            rows.append(
+                _metric_row(
+                    method="MedSAM Lite",
+                    slice_index=slice_index,
+                    target="current_slice",
+                    metrics={"status": "not_available"},
+                    bbox=None,
+                    bbox_source=None,
+                    bbox_coverage=None,
+                    notes="No real MedSAM Lite prediction exists.",
+                )
+            )
+
+        st.dataframe(rows, use_container_width=True)
+
+        if st.button("Export current metrics to CSV"):
+            output_path = export_metrics_to_csv(
+                rows,
+                Path("outputs") / "metrics" / "metrics_current_slice.csv",
+            )
+            st.success(f"Metrics exported to {output_path}")
+
 
 def render_slice_viewer(
     image_volume: np.ndarray,
@@ -365,11 +508,19 @@ def render_slice_viewer(
                 bbox_source=bbox_source,
             )
         _render_medsam_lite_section(
+            slice_index=slice_index,
             image_slice=image_slice,
             display_slice=display_slice,
             baseline_bbox=baseline_bbox,
             gt_bbox=None,
             gt_mask_display=None,
+        )
+        _render_evaluation_section(
+            slice_index=slice_index,
+            mask_display=None,
+            baseline_mask=baseline_mask,
+            baseline_bbox=baseline_bbox,
+            gt_bbox=None,
         )
         st.info("Upload a matching mask to display mask and overlay views.")
         return
@@ -411,9 +562,18 @@ def render_slice_viewer(
         )
 
     _render_medsam_lite_section(
+        slice_index=slice_index,
         image_slice=image_slice,
         display_slice=display_slice,
         baseline_bbox=baseline_bbox,
         gt_bbox=gt_bbox,
         gt_mask_display=mask_display,
+    )
+
+    _render_evaluation_section(
+        slice_index=slice_index,
+        mask_display=mask_display,
+        baseline_mask=baseline_mask,
+        baseline_bbox=baseline_bbox,
+        gt_bbox=gt_bbox,
     )

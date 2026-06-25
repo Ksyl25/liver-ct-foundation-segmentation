@@ -15,3 +15,5 @@
 - CPU MedSAM Lite inference may be slow once real inference is implemented.
 - No MedSAM Lite fine-tuning is implemented.
 - MedSAM quality depends strongly on the selected bounding box.
+- Current metrics on a single case or slice are not representative of clinical validation.
+- CSV exports are local educational artifacts and should not be treated as medical reports.
