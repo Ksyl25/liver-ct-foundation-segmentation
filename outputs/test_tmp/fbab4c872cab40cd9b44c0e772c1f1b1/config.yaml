@@ -1,0 +1,3 @@
+data:
+  input_image: image.nii.gz
+  input_mask: mask.nii.gz

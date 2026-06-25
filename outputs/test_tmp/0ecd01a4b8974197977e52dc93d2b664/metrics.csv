@@ -1,0 +1,3 @@
+case_id,slice_index,method,target,dice,iou,mask_area,gt_area,bbox,bbox_source,bbox_coverage,inference_time,status,notes
+unknown,volume,Ground-truth self-check,label_1,1.0,1.0,3,3,,,,,available,Ground truth compared with itself.
+unknown,volume,HU baseline,label_1,1.0,1.0,3,3,,,,,available,"Naive HU-threshold baseline, not clinical segmentation."

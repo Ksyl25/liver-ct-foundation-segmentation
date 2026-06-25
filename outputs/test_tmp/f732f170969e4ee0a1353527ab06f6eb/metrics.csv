@@ -1,0 +1,2 @@
+case_id,slice_index,method,target,dice,iou,mask_area,gt_area,bbox,bbox_source,bbox_coverage,inference_time,status,notes
+case_001,3,HU baseline,current_slice,0.5,0.33,10,12,"(1, 2, 3, 4)",HU baseline bbox,,,,test
