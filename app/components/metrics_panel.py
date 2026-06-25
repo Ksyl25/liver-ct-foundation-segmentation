@@ -42,3 +42,27 @@ def render_dice_metrics(mask_volume: np.ndarray | None, target_label: int) -> No
     st.caption(
         "Ground-truth self-check Dice. Model prediction will be added in a later phase."
     )
+
+
+def render_hu_statistics(image_volume: np.ndarray | None) -> None:
+    """Display simple HU intensity statistics for the uploaded CT volume."""
+
+    st.subheader("HU statistics")
+    if image_volume is None:
+        st.info("Upload a CT image to display HU statistics.")
+        return
+
+    values = np.asarray(image_volume, dtype=np.float32)
+    finite_values = values[np.isfinite(values)]
+    if finite_values.size == 0:
+        st.warning("No finite HU values found in the image volume.")
+        return
+
+    stats = {
+        "min": float(np.min(finite_values)),
+        "max": float(np.max(finite_values)),
+        "mean": float(np.mean(finite_values)),
+        "percentile_1": float(np.percentile(finite_values, 1)),
+        "percentile_99": float(np.percentile(finite_values, 99)),
+    }
+    st.json(stats)

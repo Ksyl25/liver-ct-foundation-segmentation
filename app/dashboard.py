@@ -12,7 +12,11 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from app.components.metrics_panel import render_dice_metrics, render_metadata
+from app.components.metrics_panel import (
+    render_dice_metrics,
+    render_hu_statistics,
+    render_metadata,
+)
 from app.components.sidebar import render_sidebar
 from app.components.viewer import render_slice_viewer
 from src.data.nifti_loader import load_nifti, validate_nifti_pair
@@ -85,6 +89,7 @@ def main() -> None:
         if mask_metadata is not None:
             render_metadata(mask_metadata, "Mask metadata")
     with metrics_col:
+        render_hu_statistics(image_volume)
         render_dice_metrics(mask_volume, target_label)
 
     st.divider()

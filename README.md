@@ -11,7 +11,15 @@ A local medical imaging pipeline for liver CT segmentation using NIfTI preproces
 - Axial slice viewer
 - Mask overlay
 - Dice score self-check
+- Raw and liver-windowed CT display
+- Basic HU statistics
 - Clean modular architecture
+
+## Phase 2: CT windowing
+
+Phase 2 adds minimal Hounsfield windowing for CT display and preparation. The Streamlit viewer can switch between a raw CT slice and a liver-windowed CT slice using center `60` and width `150`. The app also reports simple HU statistics for the uploaded image volume: min, max, mean, percentile 1 and percentile 99.
+
+This is not automatic segmentation. It is a display and preprocessing step that prepares the project for later baseline and model inference phases.
 
 ## Roadmap
 

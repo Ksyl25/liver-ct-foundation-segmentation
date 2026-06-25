@@ -5,6 +5,10 @@ from __future__ import annotations
 import numpy as np
 
 
+MASK_TARGET_LABEL_MODE = "Target label only"
+MASK_NONZERO_MODE = "All non-zero labels"
+
+
 def normalize_slice_for_display(image_slice: np.ndarray) -> np.ndarray:
     """Normalize a 2D image slice to the [0, 1] display range."""
 
@@ -24,6 +28,27 @@ def normalize_slice_for_display(image_slice: np.ndarray) -> np.ndarray:
     normalized = (image - min_value) / (max_value - min_value)
     normalized = np.nan_to_num(normalized, nan=0.0, posinf=1.0, neginf=0.0)
     return np.clip(normalized, 0.0, 1.0).astype(np.float32)
+
+
+def create_binary_mask_display(
+    mask_slice: np.ndarray,
+    target_label: int,
+    mask_display_mode: str = MASK_TARGET_LABEL_MODE,
+) -> np.ndarray:
+    """Convert a raw mask slice to a binary display mask."""
+
+    mask = np.asarray(mask_slice)
+    if mask.ndim != 2:
+        raise ValueError(f"Expected a 2D mask slice, got shape {mask.shape}.")
+
+    if mask_display_mode == MASK_TARGET_LABEL_MODE:
+        binary_mask = mask == target_label
+    elif mask_display_mode == MASK_NONZERO_MODE:
+        binary_mask = mask > 0
+    else:
+        raise ValueError(f"Unsupported mask display mode: {mask_display_mode}")
+
+    return binary_mask.astype(np.float32)
 
 
 def create_mask_overlay(
