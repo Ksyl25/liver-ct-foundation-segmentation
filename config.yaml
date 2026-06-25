@@ -1,0 +1,37 @@
+project:
+  name: liver-ct-foundation-segmentation
+  task: liver_ct_segmentation
+
+data:
+  input_image: data/raw/nifti/imagesTr/liver_0.nii.gz
+  input_mask: data/raw/nifti/labelsTr/liver_0.nii.gz
+  dicom_folder: data/raw/dicom/sample_series
+
+preprocessing:
+  orientation: RAS
+  spacing:
+    target: [1.5, 1.5, 2.0]
+  windowing:
+    mode: liver
+    center: 60
+    width: 150
+  normalize:
+    output_min: 0.0
+    output_max: 1.0
+
+segmentation:
+  model: medsam_lite
+  device: auto
+  prompt_mode: manual
+  run_slices: selected
+  max_slices: 5
+
+evaluation:
+  target_label_liver: 1
+  target_label_tumor: 2
+  compute_dice: true
+
+streamlit:
+  default_slice: middle
+  show_metadata: true
+  show_metrics: true

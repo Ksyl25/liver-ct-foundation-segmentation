@@ -1,0 +1,44 @@
+"""Metadata and metrics panels for the Streamlit MVP."""
+
+from __future__ import annotations
+
+import numpy as np
+import streamlit as st
+
+from src.evaluation.dice import dice_score
+
+
+def render_metadata(metadata: dict, title: str) -> None:
+    """Display key NIfTI metadata."""
+
+    st.subheader(title)
+    visible_metadata = {
+        "path": metadata.get("path"),
+        "shape": metadata.get("shape"),
+        "dtype": metadata.get("dtype"),
+        "spacing": metadata.get("spacing"),
+        "min": metadata.get("min"),
+        "max": metadata.get("max"),
+        "mean": metadata.get("mean"),
+    }
+    st.json(visible_metadata)
+
+    affine = metadata.get("affine")
+    if affine is not None:
+        st.caption("Affine")
+        st.code(np.array2string(np.asarray(affine), precision=4), language="text")
+
+
+def render_dice_metrics(mask_volume: np.ndarray | None, target_label: int) -> None:
+    """Display the Phase 1 Dice self-check."""
+
+    st.subheader("Dice metrics")
+    if mask_volume is None:
+        st.info("Upload a mask to compute the Dice self-check.")
+        return
+
+    score = dice_score(mask_volume, mask_volume, label=target_label)
+    st.metric("Ground-truth self-check Dice", f"{score:.4f}")
+    st.caption(
+        "Ground-truth self-check Dice. Model prediction will be added in a later phase."
+    )
