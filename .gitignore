@@ -24,6 +24,7 @@ outputs/*
 !outputs/.gitkeep
 !outputs/**/
 !outputs/**/.gitkeep
+outputs/test_tmp/
 
 models/*
 !models/.gitkeep

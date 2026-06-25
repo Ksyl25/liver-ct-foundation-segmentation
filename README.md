@@ -18,6 +18,7 @@ A local medical imaging pipeline for liver CT segmentation using NIfTI preproces
 - MedSAM Lite integration scaffold with safe missing-checkpoint handling
 - Current-slice evaluation table and CSV metrics export
 - Simple local DICOM series ingestion and viewing
+- Lightweight CLI for local inspection and evaluation workflows
 - Clean modular architecture
 
 ## Phase 2: CT windowing
@@ -56,6 +57,20 @@ Phase 6 adds simple local DICOM CT series loading. It reads a folder of DICOM sl
 
 DICOM support is for local ingestion and visualization only. Quantitative evaluation remains based on NIfTI image and mask pairs with ground truth.
 
+## Phase 7: CLI and local workflows
+
+Phase 7 adds a lightweight `argparse` CLI for reproducible local workflows. Streamlit remains the main interactive interface, while the CLI supports quick inspection and evaluation from PowerShell.
+
+Examples:
+
+```powershell
+python scripts/cli.py run-viewer
+python scripts/cli.py inspect-nifti --image data/raw/nifti/imagesTr/liver_0.nii.gz --mask data/raw/nifti/labelsTr/liver_0.nii.gz
+python scripts/cli.py inspect-dicom --dicom-dir data/raw/dicom/sample_series
+python scripts/cli.py evaluate-nifti --image data/raw/nifti/imagesTr/liver_0.nii.gz --mask data/raw/nifti/labelsTr/liver_0.nii.gz --label 1
+python scripts/cli.py evaluate-nifti --image data/raw/nifti/imagesTr/liver_0.nii.gz --mask data/raw/nifti/labelsTr/liver_0.nii.gz --output-csv outputs/metrics/cli_metrics.csv
+```
+
 ## Roadmap
 
 - Phase 2: Hounsfield windowing and CT preprocessing
@@ -64,7 +79,7 @@ DICOM support is for local ingestion and visualization only. Quantitative evalua
 - Phase 4B: MedSAM Lite zero-shot inference with local weights
 - Phase 5: evaluation and metrics export
 - Phase 6: DICOM ingestion
-- Phase 7: CLI
+- Phase 7: CLI and local workflows
 - Phase 8: premium documentation and screenshots
 
 ## Installation

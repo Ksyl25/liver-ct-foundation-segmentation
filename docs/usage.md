@@ -105,3 +105,43 @@ The DICOM viewer can display:
 Patient identifiers such as patient name, patient ID, birth date and accession number are not displayed. DICOM files should still be anonymized before sharing.
 
 The DICOM branch has no ground-truth mask in this MVP, so Dice evaluation is disabled for DICOM input. Use the NIfTI workflow for quantitative evaluation.
+
+## CLI
+
+Streamlit remains the primary interactive interface. The CLI is intended for quick checks, repeatable local workflows and simple terminal exports.
+
+Show the available commands:
+
+```powershell
+python scripts/cli.py --help
+```
+
+Print the viewer command:
+
+```powershell
+python scripts/cli.py run-viewer
+```
+
+Inspect a NIfTI image and optional mask:
+
+```powershell
+python scripts/cli.py inspect-nifti --image data/raw/nifti/imagesTr/liver_0.nii.gz --mask data/raw/nifti/labelsTr/liver_0.nii.gz
+```
+
+Inspect a local DICOM folder with safe metadata only:
+
+```powershell
+python scripts/cli.py inspect-dicom --dicom-dir data/raw/dicom/sample_series
+```
+
+Evaluate the naive HU baseline against a NIfTI ground-truth mask:
+
+```powershell
+python scripts/cli.py evaluate-nifti --image data/raw/nifti/imagesTr/liver_0.nii.gz --mask data/raw/nifti/labelsTr/liver_0.nii.gz --label 1
+```
+
+Export CLI evaluation metrics to CSV:
+
+```powershell
+python scripts/cli.py evaluate-nifti --image data/raw/nifti/imagesTr/liver_0.nii.gz --mask data/raw/nifti/labelsTr/liver_0.nii.gz --output-csv outputs/metrics/cli_metrics.csv
+```

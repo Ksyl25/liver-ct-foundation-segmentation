@@ -22,3 +22,5 @@
 - No DICOM-SEG export.
 - No guarantee for all vendor-specific DICOM variants.
 - The DICOM branch has no Dice evaluation unless a matching mask is added in a future phase.
+- The CLI is a lightweight local helper and does not replace clinical validation.
+- CLI evaluation still uses the naive HU baseline and optional local MedSAM status only.
