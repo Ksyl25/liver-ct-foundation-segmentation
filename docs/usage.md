@@ -91,3 +91,17 @@ outputs/metrics/metrics_current_slice.csv
 ```
 
 MedSAM metrics remain `not_available` unless a real MedSAM Lite prediction has been produced.
+
+## DICOM Viewer
+
+Open the `DICOM Viewer` section in Streamlit and enter a local folder containing one CT DICOM series. Click `Load DICOM series` to reconstruct a simple 3D volume and browse slices.
+
+The DICOM viewer can display:
+
+- raw / HU-converted slices
+- liver-windowed slices using the existing CT windowing
+- safe metadata such as modality, spacing, slice thickness and series description
+
+Patient identifiers such as patient name, patient ID, birth date and accession number are not displayed. DICOM files should still be anonymized before sharing.
+
+The DICOM branch has no ground-truth mask in this MVP, so Dice evaluation is disabled for DICOM input. Use the NIfTI workflow for quantitative evaluation.

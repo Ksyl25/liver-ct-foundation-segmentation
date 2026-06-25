@@ -17,6 +17,7 @@ A local medical imaging pipeline for liver CT segmentation using NIfTI preproces
 - Automatic 2D bounding boxes from baseline or mask
 - MedSAM Lite integration scaffold with safe missing-checkpoint handling
 - Current-slice evaluation table and CSV metrics export
+- Simple local DICOM series ingestion and viewing
 - Clean modular architecture
 
 ## Phase 2: CT windowing
@@ -48,6 +49,12 @@ Real MedSAM Lite inference requires local dependencies, a local checkpoint confi
 Phase 5 adds an educational evaluation layer for the current slice. Available metrics include Dice, IoU, mask area, ground-truth area, bbox coverage and CSV export to `outputs/metrics/`.
 
 The HU baseline can be compared with the uploaded ground-truth mask. MedSAM Lite metrics are optional and are only reported if a real MedSAM prediction exists in the current session.
+
+## Phase 6: DICOM ingestion
+
+Phase 6 adds simple local DICOM CT series loading. It reads a folder of DICOM slices, reconstructs a 3D volume, applies `RescaleSlope` and `RescaleIntercept` when available, extracts safe metadata and displays slices in Streamlit.
+
+DICOM support is for local ingestion and visualization only. Quantitative evaluation remains based on NIfTI image and mask pairs with ground truth.
 
 ## Roadmap
 

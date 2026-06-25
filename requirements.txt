@@ -4,3 +4,4 @@ streamlit
 nibabel
 pyyaml
 pytest
+pydicom

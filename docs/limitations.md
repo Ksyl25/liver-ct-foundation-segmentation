@@ -17,3 +17,8 @@
 - MedSAM quality depends strongly on the selected bounding box.
 - Current metrics on a single case or slice are not representative of clinical validation.
 - CSV exports are local educational artifacts and should not be treated as medical reports.
+- DICOM support is intentionally simple and local.
+- No PACS integration.
+- No DICOM-SEG export.
+- No guarantee for all vendor-specific DICOM variants.
+- The DICOM branch has no Dice evaluation unless a matching mask is added in a future phase.

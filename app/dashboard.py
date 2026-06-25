@@ -17,6 +17,7 @@ from app.components.metrics_panel import (
     render_hu_statistics,
     render_metadata,
 )
+from app.components.dicom_viewer import render_dicom_viewer
 from app.components.sidebar import render_sidebar
 from app.components.viewer import render_slice_viewer
 from src.data.nifti_loader import load_nifti, validate_nifti_pair
@@ -56,6 +57,8 @@ def main() -> None:
 
     st.title("Liver CT Foundation Segmentation")
     st.warning("Educational project only. Not for clinical use or diagnosis.")
+
+    render_dicom_viewer()
 
     uploaded_image, uploaded_mask, target_label = render_sidebar()
 
