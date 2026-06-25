@@ -13,6 +13,9 @@ A local medical imaging pipeline for liver CT segmentation using NIfTI preproces
 - Dice score self-check
 - Raw and liver-windowed CT display
 - Basic HU statistics
+- Naive HU-threshold baseline segmentation
+- Automatic 2D bounding boxes from baseline or mask
+- MedSAM Lite integration scaffold with safe missing-checkpoint handling
 - Clean modular architecture
 
 ## Phase 2: CT windowing
@@ -21,11 +24,30 @@ Phase 2 adds minimal Hounsfield windowing for CT display and preparation. The St
 
 This is not automatic segmentation. It is a display and preprocessing step that prepares the project for later baseline and model inference phases.
 
+## Phase 3: HU baseline segmentation and bounding boxes
+
+Phase 3 adds a deliberately naive HU-threshold baseline using the default range `40` to `100` HU. It produces a binary mask that can be compared with the uploaded ground-truth mask and used to generate a simple automatic 2D bounding box on the selected slice.
+
+This baseline is not clinical segmentation. It can detect other soft tissues and will not robustly isolate the liver. Ground-truth bounding boxes are available only as a debug/control view; the automatic future MedSAM prompt should come from the baseline or another prediction.
+
+## Phase 4: MedSAM Lite integration scaffold
+
+Phase 4A adds a safe MedSAM Lite wrapper and Streamlit readiness panel. It validates bounding boxes, prepares CT slices as pseudo-RGB inputs, checks local checkpoint status and handles missing weights or missing dependencies without crashing the app.
+
+No MedSAM Lite weights are included, no automatic download is performed and no fine-tuning is implemented. Real inference is only available after Phase 4B wires a local MedSAM Lite API and a local checkpoint.
+
+## Phase 4B: optional real MedSAM Lite inference
+
+Phase 4B keeps MedSAM Lite optional. The app now reports whether local MedSAM/SAM-like APIs are importable, whether `torch` is available and whether the configured checkpoint exists. If any required piece is missing, Streamlit shows a controlled message and no prediction is displayed.
+
+Real MedSAM Lite inference requires local dependencies, a local checkpoint configured in `config.yaml` and a supported local loader. No weights are included, no automatic download is performed and no Dice result is reported unless a real prediction exists.
+
 ## Roadmap
 
 - Phase 2: Hounsfield windowing and CT preprocessing
 - Phase 3: baseline segmentation and automatic bounding boxes
-- Phase 4: MedSAM Lite zero-shot inference
+- Phase 4A: MedSAM Lite integration scaffold
+- Phase 4B: MedSAM Lite zero-shot inference with local weights
 - Phase 5: benchmark and evaluation
 - Phase 6: DICOM ingestion
 - Phase 7: CLI

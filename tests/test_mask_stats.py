@@ -2,6 +2,8 @@ import numpy as np
 import pytest
 
 from src.evaluation.mask_stats import (
+    mask_area,
+    count_nonzero_pixels,
     find_slices_with_label,
     find_slices_with_nonzero_mask,
 )
@@ -32,3 +34,10 @@ def test_find_slices_rejects_non_3d_masks():
         find_slices_with_label(mask, label=1)
     with pytest.raises(ValueError, match="3D"):
         find_slices_with_nonzero_mask(mask)
+
+
+def test_mask_area_counts_positive_pixels():
+    mask = np.array([[0, 1, 2], [0, 0, 3]], dtype=np.uint8)
+
+    assert mask_area(mask) == 3
+    assert count_nonzero_pixels(mask) == 3

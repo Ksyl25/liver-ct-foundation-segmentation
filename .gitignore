@@ -4,6 +4,10 @@ __pycache__/
 .pytest_cache/
 .pytest_tmp/
 .env
+*.pth
+*.pt
+*.ckpt
+*.safetensors
 
 data/raw/*
 !data/raw/.gitkeep

@@ -5,6 +5,18 @@ from __future__ import annotations
 import numpy as np
 
 
+def count_nonzero_pixels(mask: np.ndarray) -> int:
+    """Return the number of positive pixels or voxels in a mask."""
+
+    return int(np.count_nonzero(np.asarray(mask) > 0))
+
+
+def mask_area(mask: np.ndarray) -> int:
+    """Return the 2D/3D mask area as a count of positive pixels or voxels."""
+
+    return count_nonzero_pixels(mask)
+
+
 def find_slices_with_label(mask_volume: np.ndarray, label: int) -> list[int]:
     """Return axial slice indices that contain at least one voxel with label."""
 

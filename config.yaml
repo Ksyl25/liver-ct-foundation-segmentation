@@ -26,6 +26,11 @@ segmentation:
   run_slices: selected
   max_slices: 5
 
+medsam:
+  checkpoint_path: models/medsam_lite/medsam_lite.pth
+  device: auto
+  enabled: false
+
 evaluation:
   target_label_liver: 1
   target_label_tumor: 2
