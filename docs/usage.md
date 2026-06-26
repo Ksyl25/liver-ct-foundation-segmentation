@@ -1,53 +1,31 @@
 # Usage
 
-Install dependencies from the repository root:
+This project is designed for local Windows usage. It does not require cloud services and does not download medical data or model weights automatically.
+
+## Windows setup
+
+Python 3.11 is recommended, especially for the optional CUDA workflow. Python 3.10 is suitable for the core NIfTI, DICOM, Streamlit and test workflow.
+
+From the repository root:
 
 ```powershell
 python -m venv .venv
-.venv\Scripts\activate
+.\.venv\Scripts\activate
 python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-Launch the viewer:
+## Optional PyTorch CUDA setup
+
+MedSAM Lite inference requires a local PyTorch/CUDA environment, local LiteMedSAM dependencies and a local checkpoint. No checkpoint is included and no automatic weight download is performed.
+
+Check CUDA availability:
 
 ```powershell
-streamlit run app/dashboard.py
+python -c "import torch; print(torch.__version__); print(torch.version.cuda); print(torch.cuda.is_available()); print(torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'no cuda')"
 ```
 
-Upload:
-
-- a CT image volume in `.nii` or `.nii.gz` format
-- a matching mask in `.nii` or `.nii.gz` format
-
-The image and mask must be 3D volumes with the same shape.
-
-In the slice viewer, use the display mode selector to switch between:
-
-- Raw CT slice
-- Liver windowed CT slice
-
-The liver-windowed view uses a Hounsfield window with center `60` and width `150`. The mask and overlay remain available in both display modes. The metrics panel also shows basic HU statistics for the uploaded image volume.
-
-To inspect the Phase 3 baseline, enable:
-
-- Show HU baseline segmentation
-- Show automatic bounding box
-
-The baseline mask is generated from the CT image only, using a simple HU threshold. It does not use the uploaded ground-truth mask.
-
-The bounding box source can be:
-
-- HU baseline bbox: automatic bbox intended as a future MedSAM prompt source
-- Ground-truth mask bbox (debug only): useful for checking mask alignment, not a real automatic prompt
-
-When a ground-truth mask is uploaded, the app also shows baseline area, ground-truth area, current-slice Dice for baseline vs ground truth, bbox coordinates and bbox source.
-
-## MedSAM Lite Local Setup
-
-Phase 4A includes a safe MedSAM Lite readiness panel, but no model weights are distributed with this repository.
-
-Place local weights here if you have them:
+Place the MedSAM Lite checkpoint at:
 
 ```text
 models/medsam_lite/medsam_lite.pth
@@ -62,17 +40,100 @@ medsam:
   enabled: false
 ```
 
-In Streamlit, open the `MedSAM Lite` section to check:
+Do not commit model weights. The `models/` folder and common checkpoint extensions are ignored by Git.
 
-- checkpoint found or missing
-- torch available or unavailable
-- MedSAM API available or unavailable
-- selected device
-- selected bbox prompt source
+MedSAM Lite inference is single-slice only in this project. Do not run full-volume inference on an RTX 3050 Laptop GPU unless a future implementation is explicitly optimized for that hardware.
 
-Ground-truth bbox is available only for debugging. The baseline bbox is the intended automatic prompt source for future MedSAM Lite inference.
+## Launch Streamlit
 
-Click `Run MedSAM Lite on current slice` only after local dependencies and a checkpoint are available. If the local API or checkpoint is missing, the app will show a readable warning and will not display a fake prediction.
+```powershell
+streamlit run app/dashboard.py
+```
+
+The app opens a local Streamlit dashboard with NIfTI and DICOM workflows.
+
+## NIfTI image + mask workflow
+
+Upload:
+
+- a CT image volume in `.nii` or `.nii.gz` format;
+- a matching mask in `.nii` or `.nii.gz` format.
+
+The image and mask must be 3D volumes with the same shape. The default liver label is `1`.
+
+In the slice viewer, use the display mode selector to switch between:
+
+- Raw CT slice
+- Liver windowed CT slice
+
+The liver-windowed view uses a Hounsfield window with center `60` and width `150`. The mask and overlay remain available in both display modes.
+
+The viewer also reports HU statistics:
+
+- min
+- max
+- mean
+- percentile 1
+- percentile 99
+
+## Mask diagnostics
+
+The mask diagnostics panel shows:
+
+- unique mask values in the full volume;
+- unique mask values in the current slice;
+- nonzero pixel counts;
+- target-label pixel counts;
+- label `1` and label `2` pixel counts;
+- slice range where mask pixels exist.
+
+Use this panel to check whether a black mask panel means an empty slice, a wrong label or an actual display issue.
+
+## HU baseline and bbox
+
+Enable:
+
+- Show HU baseline segmentation
+- Show automatic bounding box
+
+The HU baseline is generated from the CT image only with a simple threshold. It is intentionally naive and is not clinical segmentation.
+
+Bounding box sources:
+
+- HU baseline bbox: automatic prompt
+- Ground-truth mask bbox: debug only, not reportable as an automatic result
+
+## MedSAM Lite
+
+Open the `MedSAM Lite` section to inspect:
+
+- checkpoint found or missing;
+- torch available or unavailable;
+- CUDA available or unavailable;
+- selected GPU name when available;
+- MedSAM API available or unavailable;
+- selected device;
+- selected bbox prompt source.
+
+Click `Run MedSAM Lite on current slice` only when local dependencies and a checkpoint are available. If the local API or checkpoint is missing, the app shows a readable warning and does not display a fake prediction.
+
+## MedSAM bbox comparison
+
+The `MedSAM bbox comparison` table compares current-slice MedSAM Lite predictions using:
+
+- HU baseline bbox: automatic prompt
+- Ground-truth bbox: debug only, not reportable as an automatic result
+
+The table reports:
+
+- bbox source;
+- bbox coordinates;
+- Dice vs GT;
+- IoU vs GT;
+- inference time;
+- notes.
+
+MedSAM Lite performance is highly sensitive to bounding box quality. The comparison is single-slice only and must not be presented as dataset-level validation.
 
 ## Evaluation
 
@@ -82,26 +143,64 @@ Open the `Evaluation` section after uploading a ground-truth mask. The table rep
 - HU baseline
 - MedSAM Lite only if a real prediction exists
 
-Columns include Dice, IoU, mask area, ground-truth area, bbox, bbox source, bbox coverage, status and notes. The HU baseline is a naive comparison point and is not clinical segmentation.
+Columns include Dice, IoU, mask area, ground-truth area, bbox, bbox source, bbox coverage, status and notes.
 
-Use `Export current metrics to CSV` to write:
+Export current-slice metrics to:
 
 ```text
 outputs/metrics/metrics_current_slice.csv
 ```
 
-MedSAM metrics remain `not_available` unless a real MedSAM Lite prediction has been produced.
+Generated outputs are ignored by Git.
 
-## DICOM Viewer
+## DICOM viewer
 
 Open the `DICOM Viewer` section in Streamlit and enter a local folder containing one CT DICOM series. Click `Load DICOM series` to reconstruct a simple 3D volume and browse slices.
 
 The DICOM viewer can display:
 
-- raw / HU-converted slices
-- liver-windowed slices using the existing CT windowing
-- safe metadata such as modality, spacing, slice thickness and series description
+- raw / HU-converted slices;
+- liver-windowed slices using the existing CT windowing;
+- safe metadata such as modality, spacing, slice thickness and series description.
 
 Patient identifiers such as patient name, patient ID, birth date and accession number are not displayed. DICOM files should still be anonymized before sharing.
 
 The DICOM branch has no ground-truth mask in this MVP, so Dice evaluation is disabled for DICOM input. Use the NIfTI workflow for quantitative evaluation.
+
+## CLI commands
+
+Show the available commands:
+
+```powershell
+python scripts/cli.py --help
+```
+
+Print the viewer command:
+
+```powershell
+python scripts/cli.py run-viewer
+```
+
+Inspect a NIfTI image and optional mask:
+
+```powershell
+python scripts/cli.py inspect-nifti --image data/raw/nifti/imagesTr/liver_0.nii.gz --mask data/raw/nifti/labelsTr/liver_0.nii.gz
+```
+
+Inspect a local DICOM folder with safe metadata only:
+
+```powershell
+python scripts/cli.py inspect-dicom --dicom-dir data/raw/dicom/sample_series
+```
+
+Evaluate the naive HU baseline against a NIfTI ground-truth mask:
+
+```powershell
+python scripts/cli.py evaluate-nifti --image data/raw/nifti/imagesTr/liver_0.nii.gz --mask data/raw/nifti/labelsTr/liver_0.nii.gz --label 1
+```
+
+Export CLI evaluation metrics to CSV:
+
+```powershell
+python scripts/cli.py evaluate-nifti --image data/raw/nifti/imagesTr/liver_0.nii.gz --mask data/raw/nifti/labelsTr/liver_0.nii.gz --output-csv outputs/metrics/cli_metrics.csv
+```

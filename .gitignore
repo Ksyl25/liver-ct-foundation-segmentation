@@ -1,31 +1,40 @@
 .venv/
+.venv*/
+.venv311/
 __pycache__/
 *.pyc
 .pytest_cache/
 .pytest_tmp/
 .pytest_runtime_tmp/
+.streamlit/
 .env
+external/
 *.pth
 *.pt
 *.ckpt
 *.safetensors
 
-data/raw/*
+data/raw/**
+!data/raw/
 !data/raw/.gitkeep
 !data/raw/**/
 !data/raw/**/.gitkeep
 
-data/processed/*
+data/processed/**
+!data/processed/
 !data/processed/.gitkeep
 !data/processed/**/
 !data/processed/**/.gitkeep
 
-outputs/*
+outputs/**
+!outputs/
 !outputs/.gitkeep
 !outputs/**/
 !outputs/**/.gitkeep
+outputs/test_tmp/
 
-models/*
+models/**
+!models/
 !models/.gitkeep
 !models/**/
 !models/**/.gitkeep

@@ -17,11 +17,13 @@ from src.evaluation.mask_stats import (
 from src.evaluation.dice import dice_score
 from src.evaluation.metrics import (
     compute_bbox_coverage,
+    compute_iou,
     compute_slice_metrics,
     export_metrics_to_csv,
 )
 from src.models.baseline import segment_liver_hu_threshold_slice
 from src.models.medsam_lite import (
+    MedSAMLitePrediction,
     MedSAMLiteUnavailableError,
     get_runtime_status,
     predict_slice_with_bbox,
@@ -43,6 +45,7 @@ RAW_DISPLAY_MODE = "Raw CT slice"
 LIVER_WINDOW_DISPLAY_MODE = "Liver windowed CT slice"
 SLICE_STATE_KEY = "axial_slice_index"
 MEDSAM_PREDICTION_STATE_KEY = "medsam_prediction_current_slice"
+MEDSAM_COMPARISON_STATE_KEY = "medsam_bbox_comparison_current_slice"
 BBOX_SOURCE_GT = "Ground-truth mask bbox (debug only)"
 BBOX_SOURCE_BASELINE = "HU baseline bbox"
 
@@ -107,6 +110,233 @@ def _render_mask_diagnostics(
 def _rgb_from_grayscale(image_slice: np.ndarray) -> np.ndarray:
     normalized = normalize_slice_for_display(image_slice)
     return np.stack([normalized, normalized, normalized], axis=-1)
+
+
+def _prediction_result_to_mask(
+    prediction: MedSAMLitePrediction | np.ndarray,
+    measured_time_seconds: float,
+    expected_shape: tuple[int, int],
+) -> tuple[np.ndarray, float]:
+    if isinstance(prediction, MedSAMLitePrediction):
+        prediction_array = prediction.mask
+        inference_time_seconds = prediction.inference_time_seconds
+    else:
+        prediction_array = np.asarray(prediction)
+        inference_time_seconds = measured_time_seconds
+
+    if prediction_array.shape != expected_shape:
+        raise ValueError(
+            "MedSAM Lite returned an invalid prediction shape. "
+            f"Expected {expected_shape}, got {prediction_array.shape}."
+        )
+
+    prediction_mask = (prediction_array > 0).astype(np.float32)
+    return prediction_mask, inference_time_seconds
+
+
+def _run_medsam_prediction_for_bbox(
+    image_slice: np.ndarray,
+    bbox: tuple[int, int, int, int] | None,
+    checkpoint_path: Path,
+    configured_device: str,
+) -> tuple[np.ndarray, float]:
+    start_time = time.perf_counter()
+    prediction = predict_slice_with_bbox(
+        image_slice=image_slice,
+        bbox=bbox,
+        checkpoint_path=checkpoint_path,
+        device=configured_device,
+    )
+    measured_time_seconds = time.perf_counter() - start_time
+    return _prediction_result_to_mask(
+        prediction,
+        measured_time_seconds,
+        image_slice.shape,
+    )
+
+
+def _format_bbox(bbox: tuple[int, int, int, int] | None) -> str:
+    if bbox is None:
+        return "None"
+    return f"({bbox[0]}, {bbox[1]}, {bbox[2]}, {bbox[3]})"
+
+
+def _medsam_comparison_row(
+    bbox_source: str,
+    bbox: tuple[int, int, int, int] | None,
+    prediction_mask: np.ndarray | None,
+    gt_mask_display: np.ndarray | None,
+    inference_time: float | None,
+    notes: str,
+) -> dict:
+    dice_value = None
+    iou_value = None
+    if prediction_mask is not None and gt_mask_display is not None:
+        dice_value = dice_score(prediction_mask, gt_mask_display, label=1)
+        iou_value = compute_iou(prediction_mask, gt_mask_display, label=1)
+
+    return {
+        "bbox source": bbox_source,
+        "bbox coordinates": _format_bbox(bbox),
+        "Dice vs GT": dice_value,
+        "IoU vs GT": iou_value,
+        "inference time": inference_time,
+        "notes": notes,
+    }
+
+
+def _default_medsam_comparison_rows(
+    baseline_bbox: tuple[int, int, int, int] | None,
+    gt_bbox: tuple[int, int, int, int] | None,
+) -> list[dict]:
+    rows = [
+        _medsam_comparison_row(
+            bbox_source="HU baseline bbox",
+            bbox=baseline_bbox,
+            prediction_mask=None,
+            gt_mask_display=None,
+            inference_time=None,
+            notes="Automatic prompt. Run comparison to compute MedSAM metrics.",
+        )
+    ]
+    if gt_bbox is not None:
+        rows.append(
+            _medsam_comparison_row(
+                bbox_source="Ground-truth bbox",
+                bbox=gt_bbox,
+                prediction_mask=None,
+                gt_mask_display=None,
+                inference_time=None,
+                notes=(
+                    "Debug only, not reportable as an automatic result. "
+                    "Run comparison to compute MedSAM metrics."
+                ),
+            )
+        )
+    return rows
+
+
+def _comparison_state_matches(
+    state: dict | None,
+    slice_index: int,
+    slice_shape: tuple[int, int],
+) -> bool:
+    return bool(
+        state
+        and state.get("slice_index") == slice_index
+        and tuple(state.get("slice_shape", ())) == tuple(slice_shape)
+    )
+
+
+def _render_medsam_bbox_comparison(
+    enabled: bool,
+    slice_index: int,
+    image_slice: np.ndarray,
+    display_slice: np.ndarray,
+    baseline_bbox: tuple[int, int, int, int] | None,
+    gt_bbox: tuple[int, int, int, int] | None,
+    gt_mask_display: np.ndarray | None,
+    checkpoint_path: Path,
+    configured_device: str,
+) -> None:
+    st.subheader("MedSAM bbox comparison")
+    st.caption("HU baseline bbox = automatic prompt")
+    st.caption(
+        "Ground-truth bbox = debug only, not reportable as automatic result"
+    )
+    st.caption("Comparison runs at most two single-slice inferences. No volume inference.")
+
+    bbox_base_image = _rgb_from_grayscale(display_slice)
+    bbox_columns = st.columns(2)
+    with bbox_columns[0]:
+        baseline_bbox_image = draw_bbox_on_image(
+            bbox_base_image,
+            baseline_bbox,
+            color=(0.0, 1.0, 0.0),
+        )
+        st.image(
+            baseline_bbox_image,
+            caption="HU baseline bbox (automatic prompt)",
+            clamp=True,
+        )
+    with bbox_columns[1]:
+        if gt_bbox is None:
+            st.info("Ground-truth bbox is unavailable on this slice.")
+        else:
+            gt_bbox_image = draw_bbox_on_image(
+                bbox_base_image,
+                gt_bbox,
+                color=(1.0, 1.0, 0.0),
+            )
+            st.image(
+                gt_bbox_image,
+                caption="Ground-truth bbox (debug only)",
+                clamp=True,
+            )
+
+    can_compare = enabled and gt_bbox is not None and gt_mask_display is not None
+    if not enabled:
+        st.info("Enable MedSAM Lite to run the bbox comparison.")
+    elif gt_bbox is None or gt_mask_display is None:
+        st.info("Upload a ground-truth mask with pixels on this slice to compare bbox sources.")
+
+    if can_compare and st.button("Run MedSAM bbox comparison on current slice"):
+        rows = []
+        comparison_specs = [
+            (
+                "HU baseline bbox",
+                baseline_bbox,
+                "Automatic prompt.",
+            ),
+            (
+                "Ground-truth bbox",
+                gt_bbox,
+                "Debug only, not reportable as an automatic result.",
+            ),
+        ]
+        for source, bbox, notes in comparison_specs:
+            try:
+                prediction_mask, inference_time = _run_medsam_prediction_for_bbox(
+                    image_slice=image_slice,
+                    bbox=bbox,
+                    checkpoint_path=checkpoint_path,
+                    configured_device=configured_device,
+                )
+                rows.append(
+                    _medsam_comparison_row(
+                        bbox_source=source,
+                        bbox=bbox,
+                        prediction_mask=prediction_mask,
+                        gt_mask_display=gt_mask_display,
+                        inference_time=inference_time,
+                        notes=notes,
+                    )
+                )
+            except (ValueError, MedSAMLiteUnavailableError) as exc:
+                st.warning(f"{source}: {exc}")
+                rows.append(
+                    _medsam_comparison_row(
+                        bbox_source=source,
+                        bbox=bbox,
+                        prediction_mask=None,
+                        gt_mask_display=gt_mask_display,
+                        inference_time=None,
+                        notes=f"{notes} Error: {exc}",
+                    )
+                )
+
+        st.session_state[MEDSAM_COMPARISON_STATE_KEY] = {
+            "slice_index": slice_index,
+            "slice_shape": tuple(image_slice.shape),
+            "rows": rows,
+        }
+
+    comparison_state = st.session_state.get(MEDSAM_COMPARISON_STATE_KEY)
+    if _comparison_state_matches(comparison_state, slice_index, image_slice.shape):
+        comparison_rows = comparison_state["rows"]
+    else:
+        comparison_rows = _default_medsam_comparison_rows(baseline_bbox, gt_bbox)
+    st.dataframe(comparison_rows, use_container_width=True)
 
 
 def _render_baseline_and_bbox(
@@ -203,6 +433,10 @@ def _render_medsam_lite_section(
                 "torch_status": (
                     "available" if runtime_status["torch_available"] else "unavailable"
                 ),
+                "cuda_status": (
+                    "available" if runtime_status["cuda_available"] else "unavailable"
+                ),
+                "gpu_name": runtime_status["gpu_name"],
                 "medsam_api_status": (
                     "available"
                     if runtime_status["medsam_api_available"]
@@ -212,6 +446,8 @@ def _render_medsam_lite_section(
                 "device_selected": runtime_status["device_selected"],
             }
         )
+        if runtime_status["single_slice_warning"]:
+            st.warning(runtime_status["single_slice_warning"])
 
         medsam_bbox_options = [BBOX_SOURCE_BASELINE]
         if gt_bbox is not None:
@@ -232,32 +468,33 @@ def _render_medsam_lite_section(
         )
         st.write({"selected_bbox": selected_bbox})
 
+        _render_medsam_bbox_comparison(
+            enabled=enabled,
+            slice_index=slice_index,
+            image_slice=image_slice,
+            display_slice=display_slice,
+            baseline_bbox=baseline_bbox,
+            gt_bbox=gt_bbox,
+            gt_mask_display=gt_mask_display,
+            checkpoint_path=checkpoint_path,
+            configured_device=configured_device,
+        )
+
         if not enabled:
             st.info("Enable MedSAM Lite to check local inference readiness.")
             return
 
         if st.button("Run MedSAM Lite on current slice"):
             try:
-                start_time = time.perf_counter()
-                prediction = predict_slice_with_bbox(
+                prediction_mask, inference_time_seconds = _run_medsam_prediction_for_bbox(
                     image_slice=image_slice,
                     bbox=selected_bbox,
                     checkpoint_path=checkpoint_path,
-                    device=configured_device,
+                    configured_device=configured_device,
                 )
-                inference_time_seconds = time.perf_counter() - start_time
             except (ValueError, MedSAMLiteUnavailableError) as exc:
                 st.warning(str(exc))
                 return
-
-            if prediction.shape != image_slice.shape:
-                st.warning(
-                    "MedSAM Lite returned an invalid prediction shape. "
-                    f"Expected {image_slice.shape}, got {prediction.shape}."
-                )
-                return
-
-            prediction_mask = (prediction > 0).astype(np.float32)
             prediction_overlay = create_mask_overlay(
                 image_slice=display_slice,
                 mask_slice=prediction_mask,
@@ -272,6 +509,11 @@ def _render_medsam_lite_section(
             }
             if gt_mask_display is not None:
                 metrics["medsam_vs_gt_dice_current_slice"] = dice_score(
+                    prediction_mask,
+                    gt_mask_display,
+                    label=1,
+                )
+                metrics["medsam_vs_gt_iou_current_slice"] = compute_iou(
                     prediction_mask,
                     gt_mask_display,
                     label=1,
