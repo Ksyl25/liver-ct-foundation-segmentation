@@ -82,12 +82,18 @@ def create_mask_overlay(
 def draw_bbox_on_image(
     image_rgb: np.ndarray,
     bbox: tuple[int, int, int, int] | None,
+    color: tuple[float, float, float] = (0.0, 1.0, 0.0),
 ) -> np.ndarray:
-    """Draw a green bbox on a normalized RGB image without mutating input."""
+    """Draw a bbox on a normalized RGB image without mutating input."""
 
     image = np.asarray(image_rgb, dtype=np.float32)
     if image.ndim != 3 or image.shape[2] != 3:
         raise ValueError(f"Expected an RGB image with shape (H, W, 3), got {image.shape}.")
+
+    color_array = np.asarray(color, dtype=np.float32)
+    if color_array.shape != (3,):
+        raise ValueError("color must contain three RGB values.")
+    color_array = np.clip(color_array, 0.0, 1.0)
 
     output = image.copy()
     if bbox is None:
@@ -103,10 +109,9 @@ def draw_bbox_on_image(
     if x_min > x_max or y_min > y_max:
         return np.clip(output, 0.0, 1.0).astype(np.float32)
 
-    color = np.array([0.0, 1.0, 0.0], dtype=np.float32)
-    output[y_min, x_min : x_max + 1] = color
-    output[y_max, x_min : x_max + 1] = color
-    output[y_min : y_max + 1, x_min] = color
-    output[y_min : y_max + 1, x_max] = color
+    output[y_min, x_min : x_max + 1] = color_array
+    output[y_max, x_min : x_max + 1] = color_array
+    output[y_min : y_max + 1, x_min] = color_array
+    output[y_min : y_max + 1, x_max] = color_array
 
     return np.clip(output, 0.0, 1.0).astype(np.float32)

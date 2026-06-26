@@ -53,3 +53,14 @@ def test_draw_bbox_on_image_draws_green_box_without_mutating_input():
     np.testing.assert_allclose(output[1, 1], np.array([0.0, 1.0, 0.0]))
     np.testing.assert_allclose(output[3, 3], np.array([0.0, 1.0, 0.0]))
     np.testing.assert_allclose(output[2, 2], np.array([0.0, 0.0, 0.0]))
+
+
+def test_draw_bbox_on_image_supports_custom_color():
+    image = np.zeros((5, 5, 3), dtype=np.float32)
+    bbox = (1, 1, 3, 3)
+
+    output = draw_bbox_on_image(image, bbox, color=(1.0, 1.0, 0.0))
+
+    np.testing.assert_allclose(output[1, 1], np.array([1.0, 1.0, 0.0]))
+    np.testing.assert_allclose(output[3, 3], np.array([1.0, 1.0, 0.0]))
+    np.testing.assert_allclose(output[2, 2], np.array([0.0, 0.0, 0.0]))
